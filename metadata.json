@@ -1,0 +1,6 @@
+{
+  "name": "Juego Basta",
+  "description": "Juega Basta (Stop!) en tiempo real con amigos. Cuenta con chat, temporizadores vibrantes, votación democrática de palabras, perfiles y estadísticas históricas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
