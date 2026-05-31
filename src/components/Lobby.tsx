@@ -14,12 +14,12 @@ interface LobbyProps {
 }
 
 const CATEGORY_BANK_ES = [
-  "Nombre", "Apellido", "Animal", "Fruta/Verdura", "País o Ciudad", "Cosa", "Color", 
+  "Nombre", "Animal", "Fruta/Verdura", "País o Ciudad", "Cosa", "Color", "Apellido",
   "Profesión", "Marca", "Comida", "Famoso/Actor", "Deporte", "Pelicula/Serie"
 ];
 
 const CATEGORY_BANK_EN = [
-  "Name", "Last Name", "Animal", "Fruit/Vegetable", "Country/City", "Object", "Color", 
+  "Name", "Animal", "Fruit/Vegetable", "Country/City", "Object", "Color", "Last Name",
   "Profession", "Brand", "Food", "Celebrity", "Sport", "Movie/TV"
 ];
 
