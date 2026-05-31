@@ -19,7 +19,7 @@ const CATEGORY_BANK_ES = [
 ];
 
 const CATEGORY_BANK_EN = [
-  "Name", "Last Name","Animal", "Fruit/Vegetable", "Country/City", "Object", "Color", 
+  "Name", "Last Name", "Animal", "Fruit/Vegetable", "Country/City", "Object", "Color", 
   "Profession", "Brand", "Food", "Celebrity", "Sport", "Movie/TV"
 ];
 
