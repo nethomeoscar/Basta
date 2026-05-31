@@ -6,6 +6,7 @@ import Voting from "./components/Voting.jsx";
 import Scores from "./components/Scores.jsx";
 import { RoomState } from "./types.js";
 import { AlertCircle, Wifi, WifiOff, Globe } from "lucide-react";
+import { playTensionBeep, playBastaSiren } from "./utils/audio.js";
 
 // Generate or fetch a persistent User ID
 function getOrGenerateUserId(): string {
@@ -20,6 +21,19 @@ function getOrGenerateUserId(): string {
 export default function App() {
   const [userId] = useState(() => getOrGenerateUserId());
   
+  // Choose language state - reads from cache
+  const [language, setLanguage] = useState<"es" | "en">(
+    () => (localStorage.getItem("basta_lang") as "es" | "en") || "es"
+  );
+
+  const handleLanguageToggle = (lang: "es" | "en") => {
+    setLanguage(lang);
+    localStorage.setItem("basta_lang", lang);
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "update_language", language: lang }));
+    }
+  };
+
   // Game states
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [currentInputs, setCurrentInputs] = useState<Record<string, string>>({});
@@ -45,7 +59,9 @@ export default function App() {
     roomCode: string,
     username: string,
     avatar: string,
-    isNew: boolean
+    isNew: boolean,
+    isBotRoom = false,
+    isPublic = false
   ) => {
     if (wsRef.current) {
       wsRef.current.close();
@@ -72,6 +88,9 @@ export default function App() {
         username,
         avatar,
         userId,
+        isBotRoom,
+        isPublic,
+        language,
       }));
     };
 
@@ -97,6 +116,11 @@ export default function App() {
           }
 
           case "timer_update": {
+            const activeTimer = payload.panicActive ? payload.panicTimer : payload.timer;
+            if (activeTimer <= 10 && activeTimer > 0) {
+              playTensionBeep();
+            }
+
             setRoomState((prev) => {
               if (!prev) return null;
               return {
@@ -110,6 +134,7 @@ export default function App() {
           }
 
           case "panic_triggered": {
+            playBastaSiren();
             // Force message insertion and trigger panic state
             setRoomState((prev) => {
               if (!prev) return null;
@@ -207,11 +232,11 @@ export default function App() {
   }, []);
 
   const handleJoinRoom = (roomCode: string, username: string, avatar: string) => {
-    connectSocket(roomCode, username, avatar, false);
+    connectSocket(roomCode, username, avatar, false, false, roomCode === "QUICK_MATCH");
   };
 
-  const handleCreateRoom = (username: string, avatar: string) => {
-    connectSocket("", username, avatar, true);
+  const handleCreateRoom = (username: string, avatar: string, options?: { isBotRoom?: boolean; isPublic?: boolean }) => {
+    connectSocket("", username, avatar, true, !!options?.isBotRoom, !!options?.isPublic);
   };
 
   const handleLeaveRoom = () => {
@@ -327,7 +352,9 @@ export default function App() {
         {!connected && roomState !== null && (
           <div className="absolute top-2 left-4 right-4 bg-red-600/90 text-white p-2.5 rounded-xl text-xs flex items-center gap-2 justify-center z-50 animate-bounce">
             <WifiOff size={14} className="animate-pulse" />
-            <span className="font-semibold">Sin conexión. Intentando reconectar...</span>
+            <span className="font-semibold">
+              {language === "en" ? "No connection. Retrying..." : "Sin conexión. Intentando reconectar..."}
+            </span>
           </div>
         )}
 
@@ -341,7 +368,7 @@ export default function App() {
               onClick={() => setErrorMsg(null)}
               className="text-white hover:text-slate-200 font-bold p-1 text-[10px]"
             >
-              Cerrar
+              {language === "en" ? "Close" : "Cerrar"}
             </button>
           </div>
         )}
@@ -354,8 +381,12 @@ export default function App() {
               <div className="p-4 bg-indigo-600/10 border border-indigo-500/20 rounded-full animate-spin">
                 <Wifi size={24} className="text-indigo-400" />
               </div>
-              <p className="text-xs text-slate-300 font-bold">Conectando al servidor del juego...</p>
-              <p className="text-[10px] text-slate-500">Uniendo a tu equipo en tiempo real</p>
+              <p className="text-xs text-slate-300 font-bold">
+                {language === "en" ? "Connecting to game server..." : "Conectando al servidor del juego..."}
+              </p>
+              <p className="text-[10px] text-slate-500">
+                {language === "en" ? "Joining your team in real-time" : "Uniendo a tu equipo en tiempo real"}
+              </p>
             </div>
           )}
 
@@ -363,6 +394,8 @@ export default function App() {
             <Home 
               onJoinRoom={handleJoinRoom}
               onCreateRoom={handleCreateRoom}
+              language={language}
+              onLanguageToggle={handleLanguageToggle}
             />
           ) : (
             <>
@@ -374,6 +407,8 @@ export default function App() {
                   onUpdateCategories={handleUpdateCategories}
                   onStartGame={handleStartGame}
                   onLeaveRoom={handleLeaveRoom}
+                  language={roomState.language || language}
+                  onLanguageToggle={handleLanguageToggle}
                 />
               )}
 
@@ -381,7 +416,9 @@ export default function App() {
                 <div className="h-full flex flex-col">
                   {/* Visual tracker of typed words count of friends, raising tension! */}
                   <div className="bg-slate-900/80 px-4 py-1.5 border-b border-slate-950 flex gap-2 items-center overflow-x-auto shrink-0 select-none text-[10px]">
-                    <span className="font-black text-indigo-400 shrink-0 uppercase">Amigos:</span>
+                    <span className="font-black text-indigo-400 shrink-0 uppercase">
+                      {(roomState.language || language) === "en" ? "PLAYERS:" : "JUGADORES:"}
+                    </span>
                     {roomState.players.map((p) => {
                       if (p.id === userId) return null;
                       const completedCount = typingPlayersState[p.id] || 0;
@@ -402,6 +439,7 @@ export default function App() {
                       inputs={currentInputs}
                       onInputChange={handleInputChange}
                       onPressBasta={handlePressBasta}
+                      language={roomState.language || language}
                     />
                   </div>
                 </div>
@@ -413,6 +451,7 @@ export default function App() {
                   userId={userId}
                   onVote={handleVote}
                   onCalculateScores={handleCalculateScores}
+                  language={roomState.language || language}
                 />
               )}
 
@@ -421,6 +460,7 @@ export default function App() {
                   room={roomState}
                   userId={userId}
                   onResetRoom={handleResetRoom}
+                  language={roomState.language || language}
                 />
               )}
             </>

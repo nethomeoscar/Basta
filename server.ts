@@ -5,6 +5,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { createServer as createViteServer } from "vite";
 import { db } from "./server/db.js";
 import { RoomState, Player, ChatMessage, GameStatus } from "./src/types.js";
+import { getBotAnswer } from "./server/dictionary.js";
 
 const app = express();
 const PORT = 3000;
@@ -45,7 +46,9 @@ app.get("/api/history", (req, res) => {
 });
 
 // A standard set of fun categories
-const DEFAULT_CATEGORIES = ["Nombre", "Animal", "Fruta/Verdura", "País o Ciudad", "Cosa", "Color"];
+const DEFAULT_CATEGORIES_ES = ["Nombre", "Animal", "Fruta/Verdura", "País o Ciudad", "Cosa", "Color"];
+const DEFAULT_CATEGORIES_EN = ["Name", "Animal", "Fruit/Vegetable", "Country/City", "Object", "Color"];
+const DEFAULT_CATEGORIES = DEFAULT_CATEGORIES_ES;
 
 // Letters pool for Basta
 const FLAVORED_LETTERS = "ABCDEFGHILMNOPQRSTUV".split("");
@@ -97,14 +100,24 @@ wss.on("connection", (ws: WebSocket) => {
 
       switch (type) {
         case "join_room": {
-          const { roomCode, username, avatar, userId } = data;
+          const { roomCode, username, avatar, userId, isBotRoom, isPublic, language } = data;
           if (!roomCode || !username || !userId) return;
 
           let targetRoomCode = roomCode.toUpperCase().trim();
           let isNewRoom = false;
 
-          // If room code is "CREATE", we spin a new lobby
-          if (targetRoomCode === "CREATE") {
+          if (targetRoomCode === "QUICK_MATCH") {
+            // Matchmaking: Find any open public room currently in lobby status
+            const openPublicRoom = Array.from(rooms.values()).find(
+              (r) => r.isPublic && r.status === "lobby" && r.players.filter(p => !p.id.startsWith("bot_")).length < 6
+            );
+            if (openPublicRoom) {
+              targetRoomCode = openPublicRoom.code;
+            } else {
+              targetRoomCode = generateRoomCode();
+              isNewRoom = true;
+            }
+          } else if (targetRoomCode === "CREATE") {
             targetRoomCode = generateRoomCode();
             isNewRoom = true;
           }
@@ -118,21 +131,59 @@ wss.on("connection", (ws: WebSocket) => {
               return;
             }
 
+            const initialLang = language === "en" ? "en" : "es";
+
             // Create new room structure
             room = {
               code: targetRoomCode,
               status: "lobby",
               players: [],
               letter: "",
-              categories: [...DEFAULT_CATEGORIES],
+              categories: initialLang === "en" ? [...DEFAULT_CATEGORIES_EN] : [...DEFAULT_CATEGORIES_ES],
               maxTime: 60,
               timer: 60,
               panicActive: false,
               panicTimer: 10,
               chatMessages: [],
               usedLetters: [],
+              isBotRoom: !!isBotRoom,
+              isPublic: !isBotRoom && (!!isPublic || roomCode.toUpperCase().trim() === "QUICK_MATCH"),
+              language: initialLang,
               clientSockets: new Map<string, WebSocket>(),
             };
+
+            // Seed Bots automatically if it is a bot room
+            if (room.isBotRoom) {
+              const bot1Id = "bot_einstein";
+              const bot2Id = "bot_shakespeare";
+
+              const bot1: Player = {
+                id: bot1Id,
+                username: initialLang === "en" ? "Bot Einstein 🤖" : "Bot Cerebrito 🤖",
+                avatar: "🤖",
+                isHost: false,
+                score: 0,
+                lastRoundScore: 0,
+                ready: true,
+                inputs: {},
+                votes: {},
+                connected: true,
+              };
+              const bot2: Player = {
+                id: bot2Id,
+                username: initialLang === "en" ? "Bot Shakespeare ✍️" : "Bot LápizVeloz ✏️",
+                avatar: "🛸",
+                isHost: false,
+                score: 0,
+                lastRoundScore: 0,
+                ready: true,
+                inputs: {},
+                votes: {},
+                connected: true,
+              };
+              room.players.push(bot1, bot2);
+            }
+
             rooms.set(targetRoomCode, room);
           }
 
@@ -233,6 +284,36 @@ wss.on("connection", (ws: WebSocket) => {
           if (!player || !player.isHost) return;
 
           room.categories = data.categories;
+
+          broadcastToRoom(currentRoomCode, {
+            type: "room_state",
+            room: getSanitizedRoomState(room),
+          });
+          break;
+        }
+
+        case "update_language": {
+          if (!currentRoomCode || !currentPlayerId) return;
+          const room = rooms.get(currentRoomCode);
+          if (!room) return;
+
+          const player = room.players.find((p) => p.id === currentPlayerId);
+          if (!player || !player.isHost) return;
+
+          const newLang = data.language === "en" ? "en" : "es";
+          room.language = newLang;
+          
+          // Re-populate system categories based on language
+          room.categories = newLang === "en" ? [...DEFAULT_CATEGORIES_EN] : [...DEFAULT_CATEGORIES_ES];
+
+          // Add System language notice
+          room.chatMessages.push({
+            id: `sys_lang_${Date.now()}`,
+            username: "Sistema",
+            text: newLang === "en" ? "🌐 Room language changed to English!" : "🌐 ¡Idioma de la sala cambiado a Español!",
+            timestamp: new Date().toLocaleTimeString(),
+            isSystem: true,
+          });
 
           broadcastToRoom(currentRoomCode, {
             type: "room_state",
@@ -572,20 +653,92 @@ function startRoomTicker(roomCode: string) {
       panicTimer: room.panicTimer,
       panicActive: room.panicActive,
     });
+
+    // Simulate bot progress in bot rooms
+    if (room.isBotRoom && room.status === "playing" && !room.panicActive) {
+      room.players.forEach((p) => {
+        if (p.id.startsWith("bot_")) {
+          const filledCount = Object.keys(p.inputs).length;
+          const totalCategories = room.categories.length;
+          if (filledCount < totalCategories && Math.random() < 0.15) {
+            const unfilledCat = room.categories.find((cat) => !p.inputs[cat]);
+            if (unfilledCat) {
+              p.inputs[unfilledCat] = "..."; // temp filler
+              broadcastToRoom(roomCode, {
+                type: "player_typing_broadcast",
+                playerId: p.id,
+                filledCount: Object.values(p.inputs).length,
+              });
+            }
+          }
+        }
+      });
+    }
   }, 1000);
 
   roomTickers.set(roomCode, ticker);
 }
 
 // Timeout / Basta triggers force submissions
-function forceEndRound(room: RoomState) {
+function forceEndRound(room: any) {
   room.status = "voting";
   room.panicActive = false;
+
+  // Generate concrete answers for bots
+  if (room.isBotRoom) {
+    room.players.forEach((p: Player) => {
+      if (p.id.startsWith("bot_")) {
+        const lang = room.language || "es";
+        const finalInputs: Record<string, string> = {};
+        room.categories.forEach((cat: string) => {
+          const accuracy = p.id === "bot_einstein" ? 0.90 : 0.75;
+          if (Math.random() < accuracy) {
+            finalInputs[cat] = getBotAnswer(lang, cat, room.letter);
+          } else {
+            finalInputs[cat] = "";
+          }
+        });
+        p.inputs = finalInputs;
+      }
+    });
+
+    // Populate bot votes on player inputs
+    room.players.forEach((botPlayer: Player) => {
+      if (botPlayer.id.startsWith("bot_")) {
+        botPlayer.votes = {};
+        room.players.forEach((targetPlayer) => {
+          if (targetPlayer.id === botPlayer.id) return;
+          
+          room.categories.forEach((cat) => {
+            const rawVal = (targetPlayer.inputs[cat] || "").trim();
+            if (!rawVal) return;
+
+            const firstChar = rawVal.charAt(0).toUpperCase();
+            const correctLetter = firstChar === room.letter.toUpperCase();
+
+            if (!botPlayer.votes[targetPlayer.id]) {
+              botPlayer.votes[targetPlayer.id] = {};
+            }
+
+            if (!correctLetter) {
+              botPlayer.votes[targetPlayer.id][cat] = false;
+            } else {
+              botPlayer.votes[targetPlayer.id][cat] = Math.random() < 0.94;
+            }
+          });
+        });
+      }
+    });
+  }
+
+  const notificationText = room.language === "en"
+    ? "⏳ TIME'S UP! The round has concluded. Reviewing everyone's answers."
+    : "⏳ ¡TIEMPO FUERA! La ronda ha concluido. Revisando las respuestas de todos.";
 
   room.chatMessages.push({
     id: `sys_time_up_${Date.now()}`,
     username: "Sistema",
-    text: "⏳ ¡TIEMPO FUERA! La ronda ha concluido. Revisando las respuestas de todos.",
+    text: notificationText,
     timestamp: new Date().toLocaleTimeString(),
     isSystem: true,
   });

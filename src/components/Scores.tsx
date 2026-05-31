@@ -6,9 +6,10 @@ interface ScoresProps {
   room: RoomState;
   userId: string;
   onResetRoom: () => void;
+  language: "es" | "en";
 }
 
-export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
+export default function Scores({ room, userId, onResetRoom, language }: ScoresProps) {
   const [expandedPlayerId, setExpandedPlayerId] = useState<string | null>(userId);
   const me = room.players.find((p) => p.id === userId);
   const isHost = me?.isHost || false;
@@ -30,12 +31,20 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
   ): { score: number; verdict: string; desc: string } => {
     const rawVal = (player.inputs[category] || "").trim();
     if (!rawVal) {
-      return { score: 0, verdict: "Vacío", desc: "No se ingresó palabra." };
+      return { 
+        score: 0, 
+        verdict: language === "en" ? "Empty" : "Vacío", 
+        desc: language === "en" ? "No word was submitted." : "No se ingresó palabra." 
+      };
     }
 
     // Check letter match
     if (rawVal.charAt(0).toUpperCase() !== letter.toUpperCase()) {
-      return { score: 0, verdict: "Letra Incorrecta", desc: `No empieza con la letra "${letter}".` };
+      return { 
+        score: 0, 
+        verdict: language === "en" ? "Wrong Letter" : "Letra Incorrecta", 
+        desc: language === "en" ? `Does not start with letter "${letter}".` : `No empieza con la letra "${letter}".` 
+      };
     }
 
     // Check democracy consensus
@@ -49,7 +58,11 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
     });
 
     if (up < down) {
-      return { score: 0, verdict: "Rechazado", desc: "La mayoría votó pulgar abajo por democracia." };
+      return { 
+        score: 0, 
+        verdict: language === "en" ? "Rejected" : "Rechazado", 
+        desc: language === "en" ? "Majority voted thumbs down by democracy." : "La mayoría votó pulgar abajo por democracia." 
+      };
     }
 
     // Now count occurrences of this word among other democratic OK players
@@ -73,10 +86,18 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
     });
 
     if (otherMatches.length > 0) {
-      return { score: 50, verdict: "Repetido", desc: `Coincide con ${otherMatches.map((p) => p.username).join(", ")}.` };
+      return { 
+        score: 50, 
+        verdict: language === "en" ? "Duplicate" : "Repetido", 
+        desc: language === "en" ? `Matches with ${otherMatches.map((p) => p.username).join(", ")}.` : `Coincide con ${otherMatches.map((p) => p.username).join(", ")}.` 
+      };
     }
 
-    return { score: 100, verdict: "Único", desc: "¡Palabra única aprobada!" };
+    return { 
+      score: 100, 
+      verdict: language === "en" ? "Unique" : "Único", 
+      desc: language === "en" ? "Unique approved submission!" : "¡Palabra única aprobada!" 
+    };
   };
 
   return (
@@ -93,10 +114,18 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
         </div>
 
         <h2 className="text-xl font-black text-slate-100 uppercase tracking-widest">
-          Resultados de la Ronda
+          {language === "en" ? "Round Results" : "Resultados de la Ronda"}
         </h2>
         <p className="text-[11px] text-slate-400">
-          Reconociendo a <span className="text-yellow-400 font-extrabold">{roundWinner?.username}</span> con <span className="text-emerald-400 font-black">{roundWinner?.lastRoundScore} pts</span> esta ronda.
+          {language === "en" ? (
+            <>
+              Recognizing <span className="text-yellow-400 font-extrabold">{roundWinner?.username}</span> with <span className="text-emerald-400 font-black">{roundWinner?.lastRoundScore} pts</span> this round.
+            </>
+          ) : (
+            <>
+              Reconociendo a <span className="text-yellow-400 font-extrabold">{roundWinner?.username}</span> con <span className="text-emerald-400 font-black">{roundWinner?.lastRoundScore} pts</span> esta ronda.
+            </>
+          )}
         </p>
       </div>
 
@@ -107,7 +136,7 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
         <div id="scores-leaderboard-card" className="bg-slate-900/40 border border-slate-900 rounded-2xl p-4 shadow-xl">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-3.5">
             <Trophy size={15} className="text-yellow-400" />
-            <span>Puntajes Acumulados</span>
+            <span>{language === "en" ? "Leaderboard Rankings" : "Puntajes Acumulados"}</span>
           </h3>
 
           <div className="space-y-2">
@@ -129,10 +158,10 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
                     <span className="text-2xl select-none">{player.avatar}</span>
                     <div>
                       <span className="text-xs font-bold text-slate-200 block">
-                        {player.username} {isMe && <span className="text-indigo-400 font-medium">(Tú)</span>}
+                        {player.username} {isMe && <span className="text-indigo-400 font-medium">{language === "en" ? "(You)" : "(Tú)"}</span>}
                       </span>
                       <span className="text-[9px] text-slate-500">
-                        Ronda: <span className="text-emerald-400 font-bold">+{player.lastRoundScore}</span>
+                        {language === "en" ? "Round:" : "Ronda:"} <span className="text-emerald-400 font-bold">+{player.lastRoundScore}</span>
                       </span>
                     </div>
                   </div>
@@ -142,7 +171,7 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
                       {player.score}
                     </span>
                     <span className="text-[8px] text-slate-500 uppercase tracking-wider font-semibold">
-                      pts totales
+                      {language === "en" ? "total pts" : "pts totales"}
                     </span>
                   </div>
                 </div>
@@ -155,10 +184,13 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
         <div id="scores-details-audit-card" className="bg-slate-900/40 border border-slate-900 rounded-2xl p-4 shadow-xl space-y-3">
           <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
             <Info size={15} className="text-indigo-400" />
-            <span>Auditoría de Respuestas</span>
+            <span>{language === "en" ? "Submissions Audit Review" : "Auditoría de Respuestas"}</span>
           </h3>
           <p className="text-[9px] text-slate-500 leading-relaxed -mt-1">
-            Presiona sobre un jugador para ver el desglose de su puntuación categoría por categoría.
+            {language === "en" 
+              ? "Tap on a player to check category score details."
+              : "Presiona sobre un jugador para ver el desglose de su puntuación categoría por categoría."
+            }
           </p>
 
           <div className="space-y-2.5">
@@ -199,7 +231,7 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
                             <div className="max-w-[70%]">
                               <span className="text-[10px] text-indigo-400 font-extrabold block leading-tight">{cat}:</span>
                               <span className={`font-semibold ${rawWord ? "text-slate-200 capitalize" : "text-slate-600 italic"}`}>
-                                {rawWord || "— Vacío —"}
+                                {rawWord || (language === "en" ? "— Empty —" : "— Vacío —")}
                               </span>
                               <span className="text-[9px] text-slate-500 block leading-none mt-1">
                                 {scoreData.desc}
@@ -242,11 +274,13 @@ export default function Scores({ room, userId, onResetRoom }: ScoresProps) {
             className="w-full bg-indigo-600 hover:bg-indigo-500 shadow-lg text-white py-3.5 rounded-2xl font-black text-sm transition flex items-center justify-center gap-2 cursor-pointer"
           >
             <RefreshCw size={14} />
-            <span>Volver al Lobby / Nueva Ronda 🔄</span>
+            <span>
+              {language === "en" ? "Back to Lobby / Next Round 🔄" : "Volver al Lobby / Nueva Ronda 🔄"}
+            </span>
           </button>
         ) : (
           <div className="text-center py-2 text-xs text-slate-400 animate-pulse font-medium">
-            Esperando que el anfitrión lance el próximo juego... ⏳
+            {language === "en" ? "Waiting for host to launch next round... ⏳" : "Esperando que el anfitrión lance el próximo juego... ⏳"}
           </div>
         )}
       </div>

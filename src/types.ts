@@ -41,6 +41,9 @@ export interface RoomState {
   panicTimer: number;
   chatMessages: ChatMessage[];
   usedLetters: string[];
+  isBotRoom?: boolean;
+  isPublic?: boolean;
+  language?: "es" | "en";
 }
 
 // Relational Database Schema types

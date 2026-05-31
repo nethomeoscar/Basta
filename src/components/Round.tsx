@@ -8,6 +8,7 @@ interface RoundProps {
   inputs: Record<string, string>;
   onInputChange: (category: string, value: string) => void;
   onPressBasta: () => void;
+  language: "es" | "en";
 }
 
 export default function Round({
@@ -16,6 +17,7 @@ export default function Round({
   inputs,
   onInputChange,
   onPressBasta,
+  language,
 }: RoundProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
@@ -67,16 +69,24 @@ export default function Round({
         {/* BIG CHOSEN LETTER INDICATOR */}
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600/10 border-2 border-indigo-400/40 w-16 h-16 rounded-2xl flex flex-col items-center justify-center shadow-lg transform rotate-2">
-            <span className="text-[10px] text-indigo-400 font-black tracking-widest leading-none">LETRA</span>
+            <span className="text-[10px] text-indigo-400 font-black tracking-widest leading-none">
+              {language === "en" ? "LETTER" : "LETRA"}
+            </span>
             <span className="text-3xl font-serif font-black text-indigo-300 -mt-1">{letter}</span>
           </div>
 
           <div className="flex flex-col">
-            <span className="text-xs text-slate-400 font-bold">Ronda activa</span>
-            <span className="text-[10px] text-indigo-400 font-black">PALABRAS COINCIDENTES</span>
+            <span className="text-xs text-slate-400 font-bold">
+              {language === "en" ? "Active Round" : "Ronda activa"}
+            </span>
+            <span className="text-[10px] text-indigo-400 font-black uppercase">
+              {language === "en" ? "MATCHING WORDS" : "PALABRAS COINCIDENTES"}
+            </span>
             {/* Progression indicators */}
             <div className="flex items-center gap-1.5 mt-1">
-              <span className="text-[10px] font-semibold text-indigo-300">Progreso:</span>
+              <span className="text-[10px] font-semibold text-indigo-300">
+                {language === "en" ? "Progress:" : "Progreso:"}
+              </span>
               <div className="w-20 bg-slate-800 h-2 rounded-full overflow-hidden">
                 <div 
                   className="bg-indigo-400 h-full transition-all duration-300"
@@ -97,7 +107,10 @@ export default function Round({
             </span>
           </div>
           <span className="text-[9px] text-slate-500 uppercase tracking-widest font-semibold mt-0.5">
-            {room.panicActive ? "⚠️ ¡BASTA!" : "TIEMPO"}
+            {room.panicActive 
+              ? (language === "en" ? "⚠️ STOP!" : "⚠️ ¡BASTA!") 
+              : (language === "en" ? "TIME" : "TIEMPO")
+            }
           </span>
         </div>
 
@@ -116,12 +129,15 @@ export default function Round({
         <div className="bg-red-950/50 border-b border-red-900/40 py-2.5 px-4 text-center text-xs flex items-center justify-center gap-2 animate-bounce shrink-0">
           <AlertTriangle size={14} className="text-red-500 animate-pulse" />
           <span className="text-red-300 font-semibold uppercase tracking-wider">
-            ¡CORRE! Alguien gritó ¡BASTA! Acaba en {room.panicTimer} segundos
+            {language === "en" 
+              ? `HURRY! Someone yelled BASTA! Ending in ${room.panicTimer} seconds`
+              : `¡CORRE! Alguien gritó ¡BASTA! Acaba en ${room.panicTimer} segundos`
+            }
           </span>
         </div>
       )}
 
-      {/* CATEGORIES CONTAINER - CUSTOM MOBILE-FRIENDLY SCROLL LIST (SCROLL CONTENT NEVER HIDDEN BY KEYBOARD) */}
+      {/* CATEGORIES CONTAINER */}
       <div 
         ref={scrollContainerRef}
         id="scroll-categories-list"
@@ -129,7 +145,10 @@ export default function Round({
       >
         <div className="text-center pb-2">
           <p className="text-[10px] text-slate-500 italic">
-            Las palabras deben empezar con la letra <span className="text-indigo-400 font-extrabold font-serif">"{letter}"</span> para ser válidas.
+            {language === "en" 
+              ? `Words must begin with the letter "${letter}" to be valid.`
+              : `Las palabras deben empezar con la letra "${letter}" para ser válidas.`
+            }
           </p>
         </div>
 
@@ -157,7 +176,7 @@ export default function Round({
                   <span className="text-xs font-bold text-indigo-300 tracking-wide">{idx + 1}. {cat}</span>
                   {hasContent && (
                     <span className="bg-indigo-500/10 text-indigo-400 text-[8px] px-1.5 py-0.5 rounded font-black uppercase">
-                      Lleno
+                      {language === "en" ? "Filled" : "Lleno"}
                     </span>
                   )}
                 </div>
@@ -166,7 +185,7 @@ export default function Round({
                 {!isLetterCorrect && (
                   <span className="text-[9px] text-amber-500 font-bold flex items-center gap-0.5 animate-pulse bg-amber-500/10 px-1.5 py-0.5 rounded-md">
                     <AlertTriangle size={10} />
-                    No empieza con {letter}
+                    {language === "en" ? `Not started with ${letter}` : `No empieza con ${letter}`}
                   </span>
                 )}
               </div>
@@ -183,7 +202,7 @@ export default function Round({
                       ? "border-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 text-slate-200" 
                       : "border-amber-700 focus:border-amber-500 text-amber-200"
                   }`}
-                  placeholder={`Palabra con la ${letter}...`}
+                  placeholder={language === "en" ? `Word with ${letter}...` : `Palabra con la ${letter}...`}
                 />
                 <span className="absolute right-3.5 text-slate-600">
                   <CornerDownRight size={14} />
@@ -195,11 +214,14 @@ export default function Round({
 
         {/* Informative Spacer */}
         <div className="py-2 text-center text-[10px] text-slate-600 select-none">
-          Fin de la lista de categorías. ¡Mantén tus dedos en movimiento! ⌨️
+          {language === "en" 
+            ? "End of categories. Keep your fingers moving! ⌨️"
+            : "Fin de la lista de categorías. ¡Mantén tus dedos en movimiento! ⌨️"
+          }
         </div>
       </div>
 
-      {/* PANIC BOTTOM PANEL - FIXED IN PLACE AND GUARANTEED TO BE ALWAYS VISIBLE REGARDLESS OF ACTIVE KEYBOARDS */}
+      {/* PANIC BOTTOM PANEL */}
       <div 
         id="panic-bottom-bar"
         className="absolute bottom-0 left-0 right-0 p-4 bg-slate-950/85 backdrop-blur-md border-t border-slate-900 z-35 flex gap-3"
@@ -214,10 +236,16 @@ export default function Round({
                 ? "bg-red-800/40 text-red-100/40 border border-red-900/20 cursor-not-allowed"
                 : "bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 shadow-red-950/50 hover:shadow-2xl animate-pulse"
           }`}
-          title={typedCount === 0 ? "Escribe al menos una palabra para cantar basta" : "Grita Basta para detener a todos"}
+          title={typedCount === 0 
+            ? (language === "en" ? "Type at least one word to call Basta" : "Escribe al menos una palabra para cantar basta")
+            : (language === "en" ? "Stop the game countdown for all" : "Grita Basta para detener a todos")
+          }
         >
           <Activity size={18} className={room.panicActive ? "text-slate-600" : "text-slate-100 animate-spin"} />
-          {room.panicActive ? "¡BASTA CANTADO!" : "¡BASTA PARA TODOS! 🛑"}
+          {room.panicActive 
+            ? (language === "en" ? "STOP ACTIVE!" : "¡BASTA CANTADO!") 
+            : (language === "en" ? "STOP GAME FOR ALL! 🛑" : "¡BASTA PARA TODOS! 🛑")
+          }
         </button>
       </div>
 

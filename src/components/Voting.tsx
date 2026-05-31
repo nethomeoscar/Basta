@@ -7,6 +7,7 @@ interface VotingProps {
   userId: string;
   onVote: (targetPlayerId: string, category: string, vote: boolean) => void;
   onCalculateScores: () => void;
+  language: "es" | "en";
 }
 
 export default function Voting({
@@ -14,6 +15,7 @@ export default function Voting({
   userId,
   onVote,
   onCalculateScores,
+  language,
 }: VotingProps) {
   // Navigation for categories during democracy voting
   const [selectedCatIdx, setSelectedCatIdx] = useState(0);
@@ -45,15 +47,20 @@ export default function Voting({
       
       {/* HEADER DIAL */}
       <div className="bg-slate-900 p-4 border-b border-slate-800 shrink-0">
-        <span className="text-[10px] text-yellow-400 font-black tracking-widest uppercase block animate-pulse">🗳️ MODO DEMOCRÁTICO ACTIVO</span>
+        <span className="text-[10px] text-yellow-400 font-black tracking-widest uppercase block animate-pulse">
+          {language === "en" ? "🗳️ ACTIVE DEMOCRATIC MODE" : "🗳️ MODO DEMOCRÁTICO ACTIVO"}
+        </span>
         <h2 className="text-lg font-extrabold text-slate-100 mt-0.5 flex items-center justify-between">
-          <span>Validación por Votación</span>
+          <span>{language === "en" ? "Democratic Validation" : "Validación por Votación"}</span>
           <span className="text-xs bg-slate-800 border border-slate-700 text-slate-300 font-mono px-2 py-0.5 rounded">
-            Letra: {letter}
+            {language === "en" ? "Letter" : "Letra"}: {letter}
           </span>
         </h2>
         <p className="text-[10px] text-slate-400 leading-relaxed mt-1">
-          Vota con un pulgar arriba si la palabra es real y empieza con la letra correcta. Vota pulgar abajo si es falsa, inventada o está repetida (el sistema chequeará repeticiones reales después).
+          {language === "en" 
+            ? "Thumbs up if the word is real and starts with the letter. Thumbs down if fake, incorrect, or duplicate."
+            : "Vota con un pulgar arriba si la palabra es real y empieza con la letra correcta. Vota pulgar abajo si es falsa o incorrecta."
+          }
         </p>
       </div>
 
@@ -82,12 +89,13 @@ export default function Voting({
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
         
         <div className="bg-slate-900/20 border border-slate-900/80 rounded-xl p-3 text-center text-[10px] text-indigo-300">
-          Revisando respuestas de la categoría: <span className="font-extrabold text-white">"{activeCategory}"</span>
+          {language === "en" ? "Reviewing answers of category:" : "Revisando respuestas de la categoría:"}{" "}
+          <span className="font-extrabold text-white">"{activeCategory}"</span>
         </div>
 
         {room.players.map((p) => {
           const rawInput = (p.inputs[activeCategory] || "").trim();
-          const word = rawInput || "— VACÍO —";
+          const word = rawInput || (language === "en" ? "— EMPTY —" : "— VACÍO —");
           const isPlayerSelf = p.id === userId;
           
           // Check if word starts with active letter
@@ -113,10 +121,13 @@ export default function Voting({
                   <span className="text-2xl select-none">{p.avatar}</span>
                   <div>
                     <span className="text-xs font-bold text-slate-200 block leading-tight">
-                      {p.username} {isPlayerSelf && <span className="text-indigo-400 font-medium">(Tú)</span>}
+                      {p.username} {isPlayerSelf && <span className="text-indigo-400 font-medium">{language === "en" ? "(You)" : "(Tú)"}</span>}
                     </span>
                     <span className="text-[9px] text-slate-500">
-                      {isPlayerSelf ? "Tu respuesta" : "Amigo"}
+                      {isPlayerSelf 
+                        ? (language === "en" ? "Your answer" : "Tu respuesta") 
+                        : (language === "en" ? "Player" : "Jugador")
+                      }
                     </span>
                   </div>
                 </div>
@@ -125,7 +136,7 @@ export default function Voting({
                 {rawInput && !matchesLetter && (
                   <span className="bg-amber-500/10 text-amber-500 border border-amber-500/15 text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
                     <ShieldAlert size={10} />
-                    Letra incorrecta
+                    {language === "en" ? "Incorrect letter" : "Letra incorrecta"}
                   </span>
                 )}
               </div>
@@ -153,13 +164,13 @@ export default function Voting({
               {/* VOTING TRIGGERS ACTIONS */}
               {!rawInput ? (
                 <div className="text-center py-2 text-[10px] text-slate-600 italic">
-                  No ingresó ninguna palabra. No requiere votación.
+                  {language === "en" ? "No word submitted. No voting required." : "No ingresó ninguna palabra. No requiere votación."}
                 </div>
               ) : isPlayerSelf ? (
                 <div className="flex justify-between items-center bg-indigo-950/10 rounded-lg p-2 border border-indigo-900/15 text-xs text-indigo-400/80">
                   <span className="flex items-center gap-1">
                     <HelpCircle size={12} />
-                    Votaciones de tus amigos:
+                    {language === "en" ? "Your friends' votes:" : "Votaciones de tus amigos:"}
                   </span>
                   <div className="flex gap-2">
                     <span className="font-bold text-emerald-400">👍 {up}</span>
@@ -168,7 +179,7 @@ export default function Voting({
                 </div>
               ) : (
                 <div className="flex gap-3">
-                  
+                   
                   {/* UPVOTE GREEN BUTTON */}
                   <button
                     onClick={() => onVote(p.id, activeCategory, true)}
@@ -179,7 +190,7 @@ export default function Voting({
                     } cursor-pointer`}
                   >
                     <Check size={14} />
-                    <span>Aceptar ({up})</span>
+                    <span>{language === "en" ? "Accept" : "Aceptar"} ({up})</span>
                   </button>
 
                   {/* DOWNVOTE RED BUTTON */}
@@ -192,7 +203,7 @@ export default function Voting({
                     } cursor-pointer`}
                   >
                     <X size={14} />
-                    <span>Rechazar ({down})</span>
+                    <span>{language === "en" ? "Reject" : "Rechazar"} ({down})</span>
                   </button>
 
                 </div>
@@ -202,10 +213,10 @@ export default function Voting({
           );
         })}
 
-        {/* Dynamic Category Pagination triggers */}
+        {/* Dynamic Category Pagination */}
         <div className="flex justify-between items-center pt-2">
           <span className="text-xs text-slate-500">
-            Categoría {selectedCatIdx + 1} de {room.categories.length}
+            {language === "en" ? "Category" : "Categoría"} {selectedCatIdx + 1} {language === "en" ? "of" : "de"} {room.categories.length}
           </span>
           
           {selectedCatIdx < room.categories.length - 1 && (
@@ -213,7 +224,7 @@ export default function Voting({
               onClick={() => setSelectedCatIdx((prev) => prev + 1)}
               className="bg-indigo-600/10 border border-indigo-500/20 text-indigo-400 text-xs py-1.5 px-3 rounded-xl hover:bg-indigo-600/20 transition flex items-center gap-1 cursor-pointer font-bold"
             >
-              Próxima categoría
+              {language === "en" ? "Next category" : "Próxima categoría"}
               <ChevronRight size={14} />
             </button>
           )}
@@ -228,11 +239,11 @@ export default function Voting({
             onClick={onCalculateScores}
             className="w-full bg-indigo-600 hover:bg-indigo-500 shadow-lg text-white py-3.5 rounded-2xl font-black text-sm transition flex items-center justify-center gap-2 cursor-pointer"
           >
-            <span>🗳️ Guardar Votos & Calcular Puntajes</span>
+            <span>{language === "en" ? "🗳️ Save Votes & Calculate Scores" : "🗳️ Guardar Votos & Calcular Puntajes"}</span>
           </button>
         ) : (
           <div className="text-center py-2 text-xs text-slate-400 animate-pulse font-medium">
-            Esperando que el anfitrión compute y finalice los votos... ⏱️
+            {language === "en" ? "Waiting for host to compute votes... ⏱️" : "Esperando que el anfitrión compute y finalice los votos... ⏱️"}
           </div>
         )}
       </div>
