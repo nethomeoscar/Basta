@@ -231,6 +231,24 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
               </div>
             </div>
 
+            {/* CREATE ROOM CARD */}
+            <div id="create-room-card" className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3">
+              <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
+                <Plus size={18} className="text-indigo-400" />
+                <span>{t.create_private_title}</span>
+              </h3>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                {t.create_private_desc}
+              </p>
+              <button
+                onClick={() => onCreateRoom(username, avatar, { isBotRoom: false })}
+                className="w-full bg-indigo-650 hover:bg-indigo-500 hover:shadow-indigo-950/40 hover:shadow-lg text-white py-3 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2 mt-2 cursor-pointer"
+              >
+                <Plus size={16} />
+                {t.create_private_btn}
+              </button>
+            </div>
+            
             {/* JOIN ROOM CARD */}
             <div id="join-room-card" className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3.5">
               <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
@@ -256,24 +274,6 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
                   {t.join_btn}
                 </button>
               </form>
-            </div>
-
-            {/* CREATE ROOM CARD */}
-            <div id="create-room-card" className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3">
-              <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
-                <Plus size={18} className="text-indigo-400" />
-                <span>{t.create_private_title}</span>
-              </h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                {t.create_private_desc}
-              </p>
-              <button
-                onClick={() => onCreateRoom(username, avatar, { isBotRoom: false })}
-                className="w-full bg-indigo-650 hover:bg-indigo-500 hover:shadow-indigo-950/40 hover:shadow-lg text-white py-3 rounded-xl font-bold text-sm transition flex items-center justify-center gap-2 mt-2 cursor-pointer"
-              >
-                <Plus size={16} />
-                {t.create_private_btn}
-              </button>
             </div>
 
             {/* PUBLIC MATCHMAKING CARD */}
