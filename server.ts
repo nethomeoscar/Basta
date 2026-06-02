@@ -6,11 +6,50 @@ import { createServer as createViteServer } from "vite";
 import { db } from "./server/db.js";
 import { RoomState, Player, ChatMessage, GameStatus } from "./src/types.js";
 import { getBotAnswer } from "./server/dictionary.js";
+import { GoogleGenAI, Type } from "@google/genai";
+import dotenv from "dotenv";
+
+dotenv.config();
+
+let aiClient: GoogleGenAI | null = null;
+function getGeminiClient(): GoogleGenAI | null {
+  if (!aiClient) {
+    const key = process.env.GEMINI_API_KEY;
+    if (key) {
+      aiClient = new GoogleGenAI({
+        apiKey: key,
+        httpOptions: {
+          headers: {
+            "User-Agent": "aistudio-build",
+          },
+        },
+      });
+    }
+  }
+  return aiClient;
+}
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
+
+// Fetch active public rooms
+app.get("/api/public-rooms", (req, res) => {
+  try {
+    const list = Array.from(rooms.values())
+      .filter((r) => r.isPublic && r.status === "lobby")
+      .map((r) => ({
+        code: r.code,
+        playersCount: r.players.filter(p => !p.id.startsWith("bot_")).length,
+        language: r.language || "es",
+        categoriesCount: r.categories.length,
+      }));
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch public rooms" });
+  }
+});
 
 // -------------------------------------------------------------
 // Relational database API endpoints
@@ -149,6 +188,7 @@ wss.on("connection", (ws: WebSocket) => {
               isBotRoom: !!isBotRoom,
               isPublic: !isBotRoom && (!!isPublic || roomCode.toUpperCase().trim() === "QUICK_MATCH"),
               language: initialLang,
+              validationMode: "democracy",
               clientSockets: new Map<string, WebSocket>(),
             };
 
@@ -205,7 +245,8 @@ wss.on("connection", (ws: WebSocket) => {
               return;
             }
 
-            const isHost = room.players.length === 0;
+            const humanPlayers = room.players.filter(p => !p.id.startsWith("bot_"));
+            const isHost = humanPlayers.length === 0;
             player = {
               id: userId,
               username,
@@ -311,6 +352,34 @@ wss.on("connection", (ws: WebSocket) => {
             id: `sys_lang_${Date.now()}`,
             username: "Sistema",
             text: newLang === "en" ? "🌐 Room language changed to English!" : "🌐 ¡Idioma de la sala cambiado a Español!",
+            timestamp: new Date().toLocaleTimeString(),
+            isSystem: true,
+          });
+
+          broadcastToRoom(currentRoomCode, {
+            type: "room_state",
+            room: getSanitizedRoomState(room),
+          });
+          break;
+        }
+
+        case "update_validation_mode": {
+          if (!currentRoomCode || !currentPlayerId) return;
+          const room = rooms.get(currentRoomCode);
+          if (!room) return;
+
+          const player = room.players.find((p) => p.id === currentPlayerId);
+          if (!player || !player.isHost) return;
+
+          const newMode = data.validationMode === "ai" ? "ai" : "democracy";
+          room.validationMode = newMode;
+
+          room.chatMessages.push({
+            id: `sys_val_${Date.now()}`,
+            username: "Sistema",
+            text: newMode === "ai" 
+              ? "🤖 Modo de validación cambiado a: Inteligencia Artificial (Gemini) ⚡" 
+              : "🙋 Modo de validación cambiado a: Votación Democrática 🗳️",
             timestamp: new Date().toLocaleTimeString(),
             isSystem: true,
           });
@@ -559,7 +628,12 @@ wss.on("connection", (ws: WebSocket) => {
 
       // Reassign host if the host left
       if (player.isHost && room.players.length > 0) {
-        room.players[0].isHost = true;
+        const humanIndex = room.players.findIndex((x: any) => !x.id.startsWith("bot_"));
+        if (humanIndex > -1) {
+          room.players[humanIndex].isHost = true;
+        } else {
+          room.players[0].isHost = true;
+        }
       }
     } else {
       setTimeout(() => {
@@ -572,7 +646,12 @@ wss.on("connection", (ws: WebSocket) => {
           if (finishedIndex > -1) {
             recheckedRoom.players.splice(finishedIndex, 1);
             if (p.isHost && recheckedRoom.players.length > 0) {
-              recheckedRoom.players[0].isHost = true;
+              const humanIndex = recheckedRoom.players.findIndex((x: any) => !x.id.startsWith("bot_"));
+              if (humanIndex > -1) {
+                recheckedRoom.players[humanIndex].isHost = true;
+              } else {
+                recheckedRoom.players[0].isHost = true;
+              }
             }
           }
           // Notify remaining
@@ -747,6 +826,205 @@ function forceEndRound(room: any) {
     type: "round_ended_voting",
     room: getSanitizedRoomState(room),
   });
+
+  if (room.validationMode === "ai") {
+    runAiValidation(room);
+  }
+}
+
+// Background Gemini-validation task
+async function runAiValidation(room: any) {
+  room.aiEvaluating = true;
+  broadcastToRoom(room.code, {
+    type: "room_state",
+    room: getSanitizedRoomState(room),
+  });
+
+  const ai = getGeminiClient();
+  if (!ai) {
+    // If no API key, let's auto-validate in 1.5 seconds with local heuristics as fallback
+    setTimeout(() => {
+      room.players.forEach((p: Player) => {
+        if (!p.votes["ai_gemini"]) p.votes["ai_gemini"] = {};
+        if (!p.votes["ai_gemini_desc"]) p.votes["ai_gemini_desc"] = {};
+        room.categories.forEach((cat: string) => {
+          const rawVal = (p.inputs[cat] || "").trim();
+          const firstChar = rawVal.charAt(0).toUpperCase();
+          const correctLetter = firstChar === room.letter.toUpperCase();
+          p.votes["ai_gemini"][cat] = !!rawVal && correctLetter;
+          p.votes["ai_gemini_desc"][cat] = correctLetter 
+            ? (room.language === "en" ? `Approved! (Starts with ${room.letter})` : `¡Aprobada! (Empieza por la letra ${room.letter})`)
+            : (room.language === "en" ? `Rejected! (Must start with ${room.letter})` : `¡Rechazada! (Debe empezar por la letra ${room.letter})`);
+        });
+      });
+      room.aiEvaluating = false;
+      
+      room.chatMessages.push({
+        id: `sys_ai_done_${Date.now()}`,
+        username: "Sistema",
+        text: room.language === "en" 
+          ? "🤖 Gemini API key is missing. Reverted to local rule-checker check." 
+          : "🤖 Se aplicó un validador local alternativo (falta clave API de Gemini).",
+        timestamp: new Date().toLocaleTimeString(),
+        isSystem: true,
+      });
+
+      broadcastToRoom(room.code, {
+        type: "room_state",
+        room: getSanitizedRoomState(room),
+      });
+    }, 1500);
+    return;
+  }
+
+  try {
+    const letter = room.letter.toUpperCase();
+    const isEn = room.language === "en";
+    
+    // Prepare structures for prompt
+    const submissionsList: any[] = [];
+    room.players.forEach((p: Player) => {
+      room.categories.forEach((cat: string) => {
+        const rawVal = (p.inputs[cat] || "").trim();
+        if (rawVal) {
+          submissionsList.push({
+            playerId: p.id,
+            category: cat,
+            word: rawVal
+          });
+        }
+      });
+    });
+
+    if (submissionsList.length === 0) {
+      room.aiEvaluating = false;
+      broadcastToRoom(room.code, {
+        type: "room_state",
+        room: getSanitizedRoomState(room),
+      });
+      return;
+    }
+
+    const { Type } = await import("@google/genai");
+
+    const promptText = `
+You are the official referee/validator for the "¡BASTA!" word game (also known as scattergories or stop).
+Language used for words: ${isEn ? "English" : "Spanish"}.
+Letter selected for this round: "${letter}".
+
+For each entry, check if the word:
+1. Is a real, valid word in the chosen language (${isEn ? "English" : "Spanish"}). Common slang, nouns, and proper names are generally accepted if real. Do NOT allow letters or meaningless characters.
+2. Fits the given category reasonably.
+3. Starts with the letter "${letter}" (case insensitive).
+
+Here are the player submissions to validate:
+${JSON.stringify(submissionsList, null, 2)}
+
+Provide a validation result for each item. Write the explanation in ${isEn ? "English" : "Spanish"}.
+Keep explanations extremely short and concise (max 15 words) (e.g. "'Águila' es un animal válido que empieza con 'A'." or "'Apple' is a fruit starting with 'A'.").
+`;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3.5-flash",
+      contents: promptText,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            evaluations: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  playerId: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  word: { type: Type.STRING },
+                  approved: { type: Type.BOOLEAN },
+                  explanation: { type: Type.STRING },
+                },
+                required: ["playerId", "category", "word", "approved", "explanation"],
+              }
+            }
+          },
+          required: ["evaluations"],
+        }
+      }
+    });
+
+    const bodyText = response.text;
+    if (bodyText) {
+      const resultObj = JSON.parse(bodyText);
+      if (resultObj && Array.isArray(resultObj.evaluations)) {
+        room.players.forEach((p: Player) => {
+          if (!p.votes["ai_gemini"]) p.votes["ai_gemini"] = {};
+          if (!p.votes["ai_gemini_desc"]) p.votes["ai_gemini_desc"] = {};
+          
+          room.categories.forEach((cat: string) => {
+            const rawVal = (p.inputs[cat] || "").trim();
+            if (!rawVal) {
+              p.votes["ai_gemini"][cat] = false;
+              p.votes["ai_gemini_desc"][cat] = isEn ? "Empty" : "Vacío";
+              return;
+            }
+
+            const evalItem = resultObj.evaluations.find(
+              (item: any) => item.playerId === p.id && item.category === cat
+            );
+
+            if (evalItem) {
+              p.votes["ai_gemini"][cat] = evalItem.approved;
+              p.votes["ai_gemini_desc"][cat] = evalItem.explanation;
+            } else {
+              const firstChar = rawVal.charAt(0).toUpperCase();
+              const okLetter = firstChar === letter;
+              p.votes["ai_gemini"][cat] = okLetter;
+              p.votes["ai_gemini_desc"][cat] = okLetter 
+                ? (isEn ? "Approved by fallback" : "Aprobado por regla básica")
+                : (isEn ? `Rejected: Must start with ${letter}` : `Rechazado: Debe empezar por ${letter}`);
+            }
+          });
+        });
+      }
+    }
+
+    room.aiEvaluating = false;
+
+    room.chatMessages.push({
+      id: `sys_ai_finish_${Date.now()}`,
+      username: "Sistema",
+      text: isEn 
+        ? "🤖 Gemini AI has successfully validated all round submissions!" 
+        : "🤖 ¡La IA de Gemini ha validado con éxito las respuestas de la ronda!",
+      timestamp: new Date().toLocaleTimeString(),
+      isSystem: true,
+    });
+
+    broadcastToRoom(room.code, {
+      type: "room_state",
+      room: getSanitizedRoomState(room),
+    });
+
+  } catch (err) {
+    console.error("Gemini validation error:", err);
+    // In case of error, fallback to basic validation
+    room.players.forEach((p: Player) => {
+      if (!p.votes["ai_gemini"]) p.votes["ai_gemini"] = {};
+      if (!p.votes["ai_gemini_desc"]) p.votes["ai_gemini_desc"] = {};
+      room.categories.forEach((cat: string) => {
+        const rawVal = (p.inputs[cat] || "").trim();
+        const firstChar = rawVal.charAt(0).toUpperCase();
+        const correctLetter = firstChar === room.letter.toUpperCase();
+        p.votes["ai_gemini"][cat] = !!rawVal && correctLetter;
+        p.votes["ai_gemini_desc"][cat] = correctLetter ? "Sintácticamente válido" : "Letra inicial incorrecta";
+      });
+    });
+    room.aiEvaluating = false;
+    broadcastToRoom(room.code, {
+      type: "room_state",
+      room: getSanitizedRoomState(room),
+    });
+  }
 }
 
 // Calculate actual scores based on democratic voting rules
@@ -770,21 +1048,31 @@ function calculateBastaScores(room: RoomState) {
       const rawInput = (p.inputs[cat] || "").trim();
       const normInput = rawInput.toLowerCase();
 
-      // Check consensus
-      const playerVotes = p.votes; // votingPlayerId -> categoryId -> boolean
-      let upvotes = 0;
-      let downvotes = 0;
+      let isDemocraticOk = true;
 
-      // Count votes
-      players.forEach((voter) => {
-        if (voter.id === p.id) return; // Skip self vote
-        const playerVoteForCat = p.votes[voter.id]?.[cat];
-        if (playerVoteForCat === true) upvotes++;
-        if (playerVoteForCat === false) downvotes++;
-      });
+      if (room.validationMode === "ai") {
+        if (p.votes["ai_gemini"]) {
+          isDemocraticOk = p.votes["ai_gemini"]?.[cat] !== false;
+        } else {
+          isDemocraticOk = true; // fallback or during evaluation
+        }
+      } else {
+        // Democratic vote
+        let upvotes = 0;
+        let downvotes = 0;
 
-      // Simple democracy definition: Not rejected (default or equal is fine, more downvotes than upvotes is invalid)
-      const isDemocraticOk = upvotes >= downvotes;
+        // Count votes
+        players.forEach((voter) => {
+          if (voter.id === p.id) return; // Skip self vote
+          const playerVoteForCat = p.votes[voter.id]?.[cat];
+          if (playerVoteForCat === true) upvotes++;
+          if (playerVoteForCat === false) downvotes++;
+        });
+
+        // Simple democracy definition: Not rejected (default or equal is fine, more downvotes than upvotes is invalid)
+        isDemocraticOk = upvotes >= downvotes;
+      }
+
       const startsWithLetter = normInput.startsWith(letter.toLowerCase());
 
       // If word is empty, it's 0 automatically
@@ -793,8 +1081,6 @@ function calculateBastaScores(room: RoomState) {
           validInputsMap[normInput] = { norm: normInput, playerIds: [] };
         }
         validInputsMap[normInput].playerIds.push(p.id);
-      } else {
-        // Player gets 0 for this category (handled by not being in valid list)
       }
     });
 

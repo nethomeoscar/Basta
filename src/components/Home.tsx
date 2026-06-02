@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Trophy, History, Play, Plus, LogIn, Sparkles, User, RefreshCw, Globe, ChevronRight } from "lucide-react";
+import { Trophy, History, Play, Plus, LogIn, Sparkles, User, RefreshCw, Globe, ChevronRight, HelpCircle } from "lucide-react";
 import { TRANSLATIONS } from "../utils/translations.js";
 
 interface HomeProps {
@@ -42,6 +42,12 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  // Active public rooms list
+  const [publicRooms, setPublicRooms] = useState<any[]>([]);
+
+  // Onboarding Tutorial State
+  const [tutorialStep, setTutorialStep] = useState<number | null>(null);
+
   useEffect(() => {
     localStorage.setItem("basta_username", username);
     localStorage.setItem("basta_avatar", avatar);
@@ -70,6 +76,23 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
     }
   }, [activeTab]);
 
+  // Poll active public rooms list
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        const res = await fetch("/api/public-rooms");
+        if (res.ok) {
+          setPublicRooms(await res.json());
+        }
+      } catch (err) {
+        console.error("Failed to fetch public rooms", err);
+      }
+    };
+    fetchRooms();
+    const interval = setInterval(fetchRooms, 4000);
+    return () => clearInterval(interval);
+  }, []);
+
   const randomizeName = () => {
     const base = RANDOM_NAMES[Math.floor(Math.random() * RANDOM_NAMES.length)];
     setUsername(base + Math.floor(Math.random() * 99));
@@ -83,14 +106,77 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
     e.preventDefault();
     if (!username.trim()) return;
     if (roomCodeInput.trim().length < 4) return;
-    onJoinRoom(roomCodeInput.trim(), username.trim(), avatar);
+    onJoinRoom(roomCodeInput.trim().toUpperCase(), username.trim(), avatar);
+  };
+
+  // Tutorial logic
+  const tutorialSteps = [
+    {
+      elementId: "profile-card",
+      text: t.tutorial_step_profile,
+    },
+    {
+      elementId: "create-room-card",
+      text: t.tutorial_step_private,
+    },
+    {
+      elementId: "join-room-card",
+      text: t.tutorial_step_join,
+    },
+    {
+      elementId: "public-matchmaking-card",
+      text: t.tutorial_step_public,
+    },
+    {
+      elementId: "bot-matchmaking-card",
+      text: t.tutorial_step_bots,
+    },
+  ];
+
+  const handleNextTutorial = () => {
+    if (tutorialStep === null) return;
+    if (tutorialStep < tutorialSteps.length - 1) {
+      const next = tutorialStep + 1;
+      setTutorialStep(next);
+      const el = document.getElementById(tutorialSteps[next].elementId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    } else {
+      setTutorialStep(null);
+    }
+  };
+
+  const handleStartTutorial = () => {
+    setTutorialStep(0);
+    setTimeout(() => {
+      const el = document.getElementById(tutorialSteps[0].elementId);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 150);
+  };
+
+  const isHighlighted = (id: string) => {
+    return tutorialStep !== null && tutorialSteps[tutorialStep]?.elementId === id;
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-slate-950 font-sans text-slate-100 pb-4">
+    <div className="flex flex-col h-full overflow-hidden bg-slate-950 font-sans text-slate-100 pb-4 relative">
       
       {/* Hero Banner / Logo HEADER */}
       <div className="text-center py-6 px-4 bg-gradient-to-b from-indigo-900/40 to-slate-950 relative">
+        
+        {/* Tutorial trigger on top-left */}
+        <button
+          onClick={handleStartTutorial}
+          className="absolute top-3 left-3 flex items-center gap-1 bg-indigo-950/80 border border-indigo-500/30 hover:bg-indigo-900 transition rounded-full px-2.5 py-1 text-[10px] font-bold shadow-md cursor-pointer text-slate-200"
+          title="Ver cómo jugar"
+        >
+          <HelpCircle size={12} className="text-indigo-400" />
+          <span>{t.tutorial_start_btn}</span>
+        </button>
+
         {/* Language switch button */}
         <div className="absolute top-3 right-3 flex items-center bg-slate-900/80 border border-slate-800 rounded-full p-0.5 text-[10px] font-bold shadow-md z-30">
           <button
@@ -158,20 +244,26 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
       </div>
 
       {/* Main Container Scrollable */}
-      <div className="flex-1 overflow-y-auto px-4 space-y-5">
+      <div className="flex-1 overflow-y-auto px-4 space-y-5 scrollbar-thin">
         
         {activeTab === "play" && (
           <div id="play-tab" className="space-y-5">
             
             {/* PROFILE CUSTOMIZER CARD */}
-            <div id="profile-card" className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md">
+            <div
+              id="profile-card"
+              className={`bg-slate-900/60 border rounded-2xl p-4 shadow-xl backdrop-blur-md transition-all duration-300 ${
+                isHighlighted("profile-card")
+                  ? "ring-2 ring-indigo-500 scale-[1.02] bg-slate-900/90 border-indigo-400/80 shadow-indigo-500/20"
+                  : "border-slate-800/80"
+              }`}
+            >
               <h2 className="text-sm font-medium text-slate-400 flex items-center gap-2 mb-4">
                 <User size={16} className="text-indigo-400" />
                 <span>{t.player_profile}</span>
               </h2>
- 
+
               <div className="flex items-center gap-4">
-                {/* Avatar Display with quick randomizer */}
                 <div className="relative group select-none">
                   <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-4xl shadow-md border-2 border-indigo-400/30">
                     {avatar}
@@ -185,7 +277,6 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
                   </button>
                 </div>
 
-                {/* Username inputs */}
                 <div className="flex-1 space-y-2">
                   <div className="relative">
                     <input
@@ -210,7 +301,7 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
                 </div>
               </div>
 
-              {/* Emoji quick bar Selector */}
+              {/* Emoji quick selector */}
               <div className="mt-4 pt-3 border-t border-slate-800/60">
                 <p className="text-[10px] text-slate-400 mb-1.5 uppercase tracking-wider font-semibold">{t.choose_avatar}</p>
                 <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-800 max-w-full">
@@ -231,8 +322,15 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
               </div>
             </div>
 
-            {/* CREATE ROOM CARD */}
-            <div id="create-room-card" className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3">
+            {/* CREATE PRIVATE ROOM CARD (NOW COMES COMFORTABLY FIRST!) */}
+            <div
+              id="create-room-card"
+              className={`bg-slate-900/60 border rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3 transition-all duration-300 ${
+                isHighlighted("create-room-card")
+                  ? "ring-2 ring-indigo-500 scale-[1.02] bg-slate-900/90 border-indigo-400/80 shadow-indigo-500/20"
+                  : "border-slate-800/80"
+              }`}
+            >
               <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
                 <Plus size={18} className="text-indigo-400" />
                 <span>{t.create_private_title}</span>
@@ -248,9 +346,16 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
                 {t.create_private_btn}
               </button>
             </div>
-            
-            {/* JOIN ROOM CARD */}
-            <div id="join-room-card" className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3.5">
+
+            {/* JOIN ROOM CARD (WITH DYNAMIC DISCOVERABLE PUBLIC LOBBIES!) */}
+            <div
+              id="join-room-card"
+              className={`bg-slate-900/60 border rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-4 transition-all duration-300 ${
+                isHighlighted("join-room-card")
+                  ? "ring-2 ring-indigo-500 scale-[1.02] bg-slate-900/90 border-indigo-400/80 shadow-indigo-500/20"
+                  : "border-slate-800/80"
+              }`}
+            >
               <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
                 <LogIn size={18} className="text-emerald-400" />
                 <span>{t.join_code_title}</span>
@@ -261,7 +366,7 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
                   type="text"
                   maxLength={6}
                   value={roomCodeInput}
-                  onChange={(e) => setRoomCodeInput(e.target.value.slice(0, 6))}
+                  onChange={(e) => setRoomCodeInput(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6))}
                   className="w-full text-center bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl py-3 text-lg font-black tracking-[0.3em] uppercase text-emerald-400 focus:outline-none transition placeholder:text-xs placeholder:tracking-normal placeholder:font-normal placeholder:text-slate-600"
                   placeholder={t.join_code_placeholder}
                 />
@@ -274,10 +379,55 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
                   {t.join_btn}
                 </button>
               </form>
+
+              {/* LIVE ACTIVE PUBLIC LOBBIES SECTOR */}
+              <div className="border-t border-slate-800/80 pt-3.5 space-y-2.5">
+                <div className="flex items-center gap-2 text-slate-300">
+                  <Globe size={14} className="text-indigo-400" />
+                  <span className="text-xs font-semibold">{t.active_public_rooms}</span>
+                </div>
+                
+                {publicRooms.length === 0 ? (
+                  <p className="text-[10px] text-slate-500 italic px-1">
+                    {t.no_public_rooms}
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 max-h-[140px] overflow-y-auto pr-1">
+                    {publicRooms.slice(0, 5).map((room) => (
+                      <div key={room.code} className="flex items-center justify-between bg-slate-950/80 border border-slate-800/50 rounded-xl p-2.5 text-xs">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono font-black text-emerald-400 tracking-wider text-sm">{room.code}</span>
+                            <span className="text-[9px] bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 px-1.5 rounded">
+                              {room.language === "en" ? "EN" : "ES"}
+                            </span>
+                          </div>
+                          <p className="text-[9px] text-slate-500">
+                            {room.playersCount} {room.playersCount === 1 ? (language === "en" ? "player" : "jugador") : (language === "en" ? "players" : "jugadores")} • {room.categoriesCount} {language === "en" ? "cats" : "categorías"}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => onJoinRoom(room.code, username, avatar)}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[10px] py-1.5 px-3 rounded-lg transition"
+                        >
+                          {t.join_btn_quick}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* PUBLIC MATCHMAKING CARD */}
-            <div id="public-matchmaking-card" className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3">
+            <div
+              id="public-matchmaking-card"
+              className={`bg-slate-900/60 border rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3 transition-all duration-300 ${
+                isHighlighted("public-matchmaking-card")
+                  ? "ring-2 ring-indigo-500 scale-[1.02] bg-slate-900/90 border-indigo-400/80 shadow-indigo-500/20"
+                  : "border-slate-800/80"
+              }`}
+            >
               <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
                 <Sparkles size={18} className="text-amber-400" />
                 <span>{t.create_public_title}</span>
@@ -295,7 +445,14 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
             </div>
 
             {/* BOT SOLO ENGINE PLAYGROUND */}
-            <div id="bot-matchmaking-card" className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3">
+            <div
+              id="bot-matchmaking-card"
+              className={`bg-slate-900/60 border rounded-2xl p-4 shadow-xl backdrop-blur-md space-y-3 transition-all duration-300 ${
+                isHighlighted("bot-matchmaking-card")
+                  ? "ring-2 ring-indigo-500 scale-[1.02] bg-slate-900/90 border-indigo-400/80 shadow-indigo-500/20"
+                  : "border-slate-800/80"
+              }`}
+            >
               <h3 className="text-sm font-semibold text-slate-300 flex items-center gap-1.5">
                 <RefreshCw size={18} className="text-purple-400" />
                 <span>{t.create_bots_title}</span>
@@ -425,6 +582,52 @@ export default function Home({ onJoinRoom, onCreateRoom, language, onLanguageTog
         )}
 
       </div>
+
+      {/* Floating Tutorial Guidance Box */}
+      {tutorialStep !== null && (
+        <div className="fixed bottom-6 left-4 right-4 z-50 bg-slate-900 border-2 border-indigo-500 rounded-2xl p-5 shadow-2xl backdrop-blur-lg animate-in fade-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-start justify-between mb-3">
+            <div>
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-400 bg-indigo-950/80 px-2 py-0.5 rounded-full border border-indigo-500/30">
+                {language === "en" ? `Step ${tutorialStep + 1} of ${tutorialSteps.length}` : `Paso ${tutorialStep + 1} de ${tutorialSteps.length}`}
+              </span>
+              <h4 className="text-sm font-bold text-slate-100 mt-1.5 flex items-center gap-1.5">
+                <Sparkles size={14} className="text-yellow-400 animate-pulse" />
+                {tutorialStep === 0 && (language === "en" ? "Customize Profile" : "Personaliza tu Perfil")}
+                {tutorialStep === 1 && (language === "en" ? "Create Rooms" : "Crea una Sala Privada")}
+                {tutorialStep === 2 && (language === "en" ? "Join with Code" : "Únete mediante Código")}
+                {tutorialStep === 3 && (language === "en" ? "Fast Matching" : "Emparejamiento Rápido")}
+                {tutorialStep === 4 && (language === "en" ? "Solo Play with Bots" : "Juega Solo con Bots")}
+              </h4>
+            </div>
+            <button
+              onClick={() => setTutorialStep(null)}
+              className="text-slate-500 hover:text-slate-300 text-xs transition p-1 cursor-pointer"
+            >
+              Cerrar ×
+            </button>
+          </div>
+          
+          <p className="text-xs text-slate-300 leading-relaxed min-h-[3.5rem]">
+            {tutorialSteps[tutorialStep].text}
+          </p>
+
+          <div className="flex items-center justify-between border-t border-slate-800/80 pt-3.5 mt-3.5">
+            <button
+              onClick={() => setTutorialStep(null)}
+              className="text-slate-400 hover:text-slate-200 text-xs transition cursor-pointer"
+            >
+              {t.tutorial_skip_btn}
+            </button>
+            <button
+              onClick={handleNextTutorial}
+              className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-2 px-4 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-indigo-950/50 cursor-pointer"
+            >
+              <span>{tutorialStep === tutorialSteps.length - 1 ? (language === "en" ? "Finish" : "Finalizar") : t.tutorial_next_btn}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Rules Footer */}
       <div className="px-4 pt-2 text-center">

@@ -263,6 +263,12 @@ export default function App() {
     }
   };
 
+  const handleUpdateValidationMode = (mode: "democracy" | "ai") => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: "update_validation_mode", validationMode: mode }));
+    }
+  };
+
   const handleStartGame = () => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({ type: "start_game" }));
@@ -409,6 +415,7 @@ export default function App() {
                   onLeaveRoom={handleLeaveRoom}
                   language={roomState.language || language}
                   onLanguageToggle={handleLanguageToggle}
+                  onUpdateValidationMode={handleUpdateValidationMode}
                 />
               )}
 

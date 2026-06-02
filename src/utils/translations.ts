@@ -90,7 +90,25 @@ export const TRANSLATIONS = {
     audit_desc_tip: "Presiona sobre un jugador para ver el desglose de su puntuación categoría por categoría.",
     term_empty: "— Vacío —",
     replay_lobby_btn: "Volver al Lobby / Nueva Ronda 🔄",
-    waiting_next: "Esperando que el anfitrión lance el próximo juego... ⏳"
+    waiting_next: "Esperando que el anfitrión lance el próximo juego... ⏳",
+
+    // New additions
+    ai_validation_title: "Validación por IA (Gemini) 🤖",
+    ai_validation_desc: "Nuestra Inteligencia Artificial de Google Gemini dictaminará la validez de todas las respuestas de forma instantánea, explicando su decisión.",
+    active_public_rooms: "Salas Públicas Activas 🌐",
+    join_btn_quick: "Unirse 🚪",
+    no_public_rooms: "No hay salas públicas abiertas en este momento. ¡Crea una sala pública y espera a que jueguen otros!",
+    tutorial_start_btn: "Ver Tutorial 📖",
+    tutorial_next_btn: "Siguiente ➔",
+    tutorial_skip_btn: "Omitir ×",
+    tutorial_step_profile: "Aquí configuras tu avatar y apodo favorito para que los demás jugadores te reconozcan.",
+    tutorial_step_private: "Genera tu propio código de sala para jugar con tus amigos de forma privada.",
+    tutorial_step_join: "Introduce un código de sala de 4 dígitos para unirse a una partida creada.",
+    tutorial_step_public: "Crea una sala pública que cualquiera en la aplicación pueda ver y unirse libremente desde Home.",
+    tutorial_step_bots: "¡Reta a bots inteligentes de inmediato de forma offline sin esperar a nadie más!",
+    tutorial_welcome_title: "Tutorial Guía de ¡BASTA!",
+    tutorial_welcome_desc: "Aprende el flujo de juego en 5 rápidos pasos interactivos.",
+    tutorial_completed: "¡Listo! Has completado el tutorial. ¡A jugar! 🎮"
   },
   en: {
     game_title: "STOP Multiplayer!",
@@ -181,6 +199,24 @@ export const TRANSLATIONS = {
     audit_desc_tip: "Click on any player to view their category scorecard items.",
     term_empty: "— Empty —",
     replay_lobby_btn: "Back to Lobby / Replay Round 🔄",
-    waiting_next: "Waiting for host to trigger the next match... ⏳"
+    waiting_next: "Waiting for host to trigger the next match... ⏳",
+
+    // New additions
+    ai_validation_title: "AI Validation (Gemini) 🤖",
+    ai_validation_desc: "Our Google Gemini Artificial Intelligence will referee all submissions in real-time and provide detailed feedback explanations.",
+    active_public_rooms: "Active Public Rooms 🌐",
+    join_btn_quick: "Join 🚪",
+    no_public_rooms: "No public rooms are active at the moment. Create a public matchmaking round to host other players!",
+    tutorial_start_btn: "View Tutorial 📖",
+    tutorial_next_btn: "Next ➔",
+    tutorial_skip_btn: "Skip ×",
+    tutorial_step_profile: "Setup your display avatar and nickname here so players can distinguish you.",
+    tutorial_step_private: "Create a private lobby and invite friends via a localized 4-digit invitation code.",
+    tutorial_step_join: "Enter any active lobby's code to jump straight into the matching room pool.",
+    tutorial_step_public: "Establish a public lobby that is visible to any other player currently online.",
+    tutorial_step_bots: "Challenge our cute simulation bots to test your vocabulary speed instantly!",
+    tutorial_welcome_title: "BASTA! Onboarding Guide",
+    tutorial_welcome_desc: "Master the game layout and interfaces in 5 quick interactive steps.",
+    tutorial_completed: "Great! You have completed the onboarding guide. Let's play! 🎮"
   }
 };

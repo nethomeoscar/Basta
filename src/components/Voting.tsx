@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check, X, ShieldAlert, ChevronRight, HelpCircle, Flame } from "lucide-react";
+import { Check, X, ShieldAlert, ChevronRight, HelpCircle, Flame, RefreshCw } from "lucide-react";
 import { RoomState, Player } from "../types.js";
 
 interface VotingProps {
@@ -17,7 +17,6 @@ export default function Voting({
   onCalculateScores,
   language,
 }: VotingProps) {
-  // Navigation for categories during democracy voting
   const [selectedCatIdx, setSelectedCatIdx] = useState(0);
   const activeCategory = room.categories[selectedCatIdx];
   const letter = room.letter.toUpperCase();
@@ -25,15 +24,12 @@ export default function Voting({
   const me = room.players.find((p) => p.id === userId);
   const isHost = me?.isHost || false;
 
-  // Helper to count votes for a given player's word in a category
   const getVotesCount = (player: Player, category: string) => {
     let up = 0;
     let down = 0;
 
     room.players.forEach((voter) => {
-      // Find what other players voted for this player's word
-      if (voter.id === player.id) return; // ignore self
-      
+      if (voter.id === player.id) return;
       const voteVal = player.votes[voter.id]?.[category];
       if (voteVal === true) up++;
       if (voteVal === false) down++;
@@ -47,25 +43,32 @@ export default function Voting({
       
       {/* HEADER DIAL */}
       <div className="bg-slate-900 p-4 border-b border-slate-800 shrink-0">
-        <span className="text-[10px] text-yellow-400 font-black tracking-widest uppercase block animate-pulse">
-          {language === "en" ? "🗳️ ACTIVE DEMOCRATIC MODE" : "🗳️ MODO DEMOCRÁTICO ACTIVO"}
+        <span className="text-[10px] text-indigo-400 font-black tracking-widest uppercase block animate-pulse">
+          {room.validationMode === "ai" 
+            ? "🤖 GEMINI AI REFEREE ACTIVE ⚡" 
+            : "🗳️ ACTIVE DEMOCRATIC MODE"
+          }
         </span>
         <h2 className="text-lg font-extrabold text-slate-100 mt-0.5 flex items-center justify-between">
-          <span>{language === "en" ? "Democratic Validation" : "Validación por Votación"}</span>
+          <span>{room.validationMode === "ai" ? (language === "en" ? "AI Referee Judgment" : "Arbitraje por IA") : (language === "en" ? "Democratic Validation" : "Validación por Votación")}</span>
           <span className="text-xs bg-slate-800 border border-slate-700 text-slate-300 font-mono px-2 py-0.5 rounded">
             {language === "en" ? "Letter" : "Letra"}: {letter}
           </span>
         </h2>
         <p className="text-[10px] text-slate-400 leading-relaxed mt-1">
-          {language === "en" 
-            ? "Thumbs up if the word is real and starts with the letter. Thumbs down if fake, incorrect, or duplicate."
-            : "Vota con un pulgar arriba si la palabra es real y empieza con la letra correcta. Vota pulgar abajo si es falsa o incorrecta."
+          {room.validationMode === "ai" 
+            ? (language === "en" 
+                ? "Our Google Gemini Artificial Intelligence will referee all submissions in real-time and provide detailed feedback."
+                : "La Inteligencia Artificial de Google Gemini dictaminará la validez de todas las respuestas de forma instantánea.")
+            : (language === "en" 
+                ? "Thumbs up if the word is real and starts with the letter. Thumbs down if fake, incorrect, or duplicate."
+                : "Vota con un pulgar arriba si la palabra es real y empieza con la letra correcta. Vota pulgar abajo si es falsa o incorrecta.")
           }
         </p>
       </div>
 
       {/* CATEGORY SELECTOR SLIDERS */}
-      <div className="bg-slate-950 p-2 border-b border-slate-900/60 flex gap-1.5 overflow-x-auto shrink-0 scrollbar-thin scrollbar-thumb-slate-800">
+      <div className="bg-slate-950 p-2 border-b border-slate-900/60 flex gap-1.5 overflow-x-auto shrink-0 scrollbar-thin">
         {room.categories.map((cat, idx) => {
           const isActive = idx === selectedCatIdx;
           return (
@@ -86,8 +89,23 @@ export default function Voting({
       </div>
 
       {/* VOTING TILES SCROLLER FOR THE TARGET CATEGORY */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-20 scrollbar-thin">
         
+        {/* Loading Spinner for AI evaluation */}
+        {room.validationMode === "ai" && room.aiEvaluating && (
+          <div className="bg-purple-950/20 border border-purple-500/35 rounded-2xl p-5 text-center space-y-3 animate-pulse">
+            <RefreshCw size={24} className="animate-spin text-purple-400 mx-auto" />
+            <div>
+              <p className="text-xs font-bold text-slate-200">
+                {language === "en" ? "🤖 Gemini IA is inspecting submissions..." : "🤖 La IA de Gemini está inspeccionando las respuestas..."}
+              </p>
+              <p className="text-[10px] text-slate-500 mt-1">
+                {language === "en" ? "Validating vocabulary rules, letters matching and categories definition." : "Validando reglas ortográficas, concordancia de la inicial y relevancia."}
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="bg-slate-900/20 border border-slate-900/80 rounded-xl p-3 text-center text-[10px] text-indigo-300">
           {language === "en" ? "Reviewing answers of category:" : "Revisando respuestas de la categoría:"}{" "}
           <span className="font-extrabold text-white">"{activeCategory}"</span>
@@ -98,13 +116,15 @@ export default function Voting({
           const word = rawInput || (language === "en" ? "— EMPTY —" : "— VACÍO —");
           const isPlayerSelf = p.id === userId;
           
-          // Check if word starts with active letter
           const firstChar = rawInput.charAt(0).toUpperCase();
           const matchesLetter = firstChar === letter;
           const { up, down } = getVotesCount(p, activeCategory);
 
-          // Find current user's vote for this card
           const myVote = p.votes[userId]?.[activeCategory];
+
+          // Retrieve AI judgment values
+          const isApproved = p.votes["ai_gemini"]?.[activeCategory];
+          const gExplanation = p.votes["ai_gemini_desc"]?.[activeCategory];
 
           return (
             <div 
@@ -115,7 +135,6 @@ export default function Voting({
                   : "bg-slate-900/40 border-slate-800/80"
               }`}
             >
-              {/* Badge profile item */}
               <div className="flex justify-between items-center mb-3">
                 <div className="flex items-center gap-2">
                   <span className="text-2xl select-none">{p.avatar}</span>
@@ -132,7 +151,6 @@ export default function Voting({
                   </div>
                 </div>
 
-                {/* Accuracy Warnings helper */}
                 {rawInput && !matchesLetter && (
                   <span className="bg-amber-500/10 text-amber-500 border border-amber-500/15 text-[9px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 animate-pulse">
                     <ShieldAlert size={10} />
@@ -153,7 +171,6 @@ export default function Voting({
                   {word}
                 </span>
                 
-                {/* Empty check stamp */}
                 {!rawInput && (
                   <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[9px] text-slate-700 font-extrabold">
                     0 pts
@@ -161,12 +178,51 @@ export default function Voting({
                 )}
               </div>
 
-              {/* VOTING TRIGGERS ACTIONS */}
+              {/* VOTING OR AI JUDGMENT PRESENTATION */}
               {!rawInput ? (
                 <div className="text-center py-2 text-[10px] text-slate-600 italic">
-                  {language === "en" ? "No word submitted. No voting required." : "No ingresó ninguna palabra. No requiere votación."}
+                  {language === "en" ? "No word submitted. No voting required." : "No ingresó ninguna palabra. No requiere aprobación."}
                 </div>
+              ) : room.validationMode === "ai" ? (
+                // AI Judgment Feedback UI Block
+                room.aiEvaluating ? (
+                  <div className="bg-slate-950 rounded-xl p-3.5 h-14 flex items-center justify-center border border-slate-900">
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <RefreshCw size={12} className="animate-spin text-purple-400" />
+                      <span>{language === "en" ? "Evaluating response..." : "Arbitrando respuesta..."}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className={`rounded-xl p-3 border transition-all ${
+                    isApproved
+                      ? "bg-emerald-950/20 border-emerald-500/30 text-emerald-300"
+                      : "bg-red-950/20 border-red-500/30 text-red-300"
+                  }`}>
+                    <div className="flex items-center gap-1.5 font-bold text-xs mb-1">
+                      {isApproved ? (
+                        <span className="bg-emerald-500/25 text-emerald-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-emerald-400/20">
+                          ✓ {language === "en" ? "APPROVED" : "APROBADO"}
+                        </span>
+                      ) : (
+                        <span className="bg-red-500/25 text-red-400 text-[9px] font-black px-2 py-0.5 rounded-md border border-red-400/20">
+                          ✗ {language === "en" ? "REJECTED" : "RECHAZADO"}
+                        </span>
+                      )}
+                      <span className="text-[9px] text-slate-500 font-semibold">• Google Gemini AI Referee</span>
+                    </div>
+                    {gExplanation ? (
+                      <p className="text-[11px] text-slate-300 leading-normal italic mt-1.5 pl-1.5 border-l-2 border-indigo-500/30">
+                        "{gExplanation}"
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 italic mt-1.5">
+                        {language === "en" ? "Decided based on initial requirements check" : "Decidido según restricciones ortográficas generales"}
+                      </p>
+                    )}
+                  </div>
+                )
               ) : isPlayerSelf ? (
+                // Democratic Voted details values
                 <div className="flex justify-between items-center bg-indigo-950/10 rounded-lg p-2 border border-indigo-900/15 text-xs text-indigo-400/80">
                   <span className="flex items-center gap-1">
                     <HelpCircle size={12} />
@@ -178,9 +234,8 @@ export default function Voting({
                   </div>
                 </div>
               ) : (
+                // Manual Upvote/Downvote Buttons
                 <div className="flex gap-3">
-                   
-                  {/* UPVOTE GREEN BUTTON */}
                   <button
                     onClick={() => onVote(p.id, activeCategory, true)}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold border transition ${
@@ -193,7 +248,6 @@ export default function Voting({
                     <span>{language === "en" ? "Accept" : "Aceptar"} ({up})</span>
                   </button>
 
-                  {/* DOWNVOTE RED BUTTON */}
                   <button
                     onClick={() => onVote(p.id, activeCategory, false)}
                     className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-4 rounded-xl text-xs font-bold border transition ${
@@ -205,7 +259,6 @@ export default function Voting({
                     <X size={14} />
                     <span>{language === "en" ? "Reject" : "Rechazar"} ({down})</span>
                   </button>
-
                 </div>
               )}
 
@@ -237,13 +290,22 @@ export default function Voting({
         {isHost ? (
           <button
             onClick={onCalculateScores}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 shadow-lg text-white py-3.5 rounded-2xl font-black text-sm transition flex items-center justify-center gap-2 cursor-pointer"
+            disabled={room.validationMode === "ai" && room.aiEvaluating}
+            className="w-full bg-indigo-600 hover:bg-indigo-505 shadow-lg text-white py-3.5 rounded-2xl font-black text-sm transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40"
           >
-            <span>{language === "en" ? "🗳️ Save Votes & Calculate Scores" : "🗳️ Guardar Votos & Calcular Puntajes"}</span>
+            <span>
+              {room.validationMode === "ai" 
+                ? (language === "en" ? "🤖 Process AI Scorecard" : "🤖 Procesar Puntuación de la IA") 
+                : (language === "en" ? "🗳️ Save Votes & Calculate Scores" : "🗳️ Guardar Votos & Calcular Puntajes")
+              }
+            </span>
           </button>
         ) : (
           <div className="text-center py-2 text-xs text-slate-400 animate-pulse font-medium">
-            {language === "en" ? "Waiting for host to compute votes... ⏱️" : "Esperando que el anfitrión compute y finalice los votos... ⏱️"}
+            {room.validationMode === "ai" && room.aiEvaluating
+              ? (language === "en" ? "AI referee is inspecting round answers... 🤖⏳" : "El árbitro IA está examinando las respuestas de la ronda... 🤖⏳")
+              : (language === "en" ? "Waiting for host to compile final scorecard... ⏱️" : "Esperando que el anfitrión compute y finalice los votos... ⏱️")
+            }
           </div>
         )}
       </div>

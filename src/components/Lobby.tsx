@@ -11,15 +11,16 @@ interface LobbyProps {
   onLeaveRoom: () => void;
   language: "es" | "en";
   onLanguageToggle?: (lang: "es" | "en") => void;
+  onUpdateValidationMode?: (mode: "democracy" | "ai") => void;
 }
 
 const CATEGORY_BANK_ES = [
-  "Nombre", "Animal", "Fruta/Verdura", "País o Ciudad", "Cosa", "Color", "Apellido",
+  "Nombre", "Animal", "Fruta/Verdura", "País o Ciudad", "Cosa", "Color", 
   "Profesión", "Marca", "Comida", "Famoso/Actor", "Deporte", "Pelicula/Serie"
 ];
 
 const CATEGORY_BANK_EN = [
-  "Name", "Animal", "Fruit/Vegetable", "Country/City", "Object", "Color", "Last Name",
+  "Name", "Animal", "Fruit/Vegetable", "Country/City", "Object", "Color", 
   "Profession", "Brand", "Food", "Celebrity", "Sport", "Movie/TV"
 ];
 
@@ -32,6 +33,7 @@ export default function Lobby({
   onLeaveRoom,
   language,
   onLanguageToggle,
+  onUpdateValidationMode,
 }: LobbyProps) {
   const [chatInput, setChatInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -39,6 +41,7 @@ export default function Lobby({
   const isHost = me?.isHost || false;
 
   const currentBank = language === "en" ? CATEGORY_BANK_EN : CATEGORY_BANK_ES;
+  const t = TRANSLATIONS[language];
 
   // Auto scroll chat to bottom on new messages
   useEffect(() => {
@@ -128,7 +131,7 @@ export default function Lobby({
       </div>
 
       {/* Grid Layout */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-5 flex flex-col justify-between">
+      <div className="flex-1 overflow-y-auto p-4 space-y-5 flex flex-col justify-between scrollbar-thin">
         <div className="space-y-4">
           
           {/* PLAYERS LIST CARD */}
@@ -161,7 +164,7 @@ export default function Lobby({
                         ? (language === "en" ? "You" : "Tú") 
                         : p.isHost 
                           ? (language === "en" ? "Host" : "Anfitrión") 
-                          : (language === "en" ? "Ready to play" : "Listo para jugar")
+                          : (language === "en" ? "Ready" : "Listo")
                       }
                     </p>
                   </div>
@@ -170,40 +173,85 @@ export default function Lobby({
             </div>
           </div>
 
-          {/* CATEGORY SELECTORS */}
-          <div id="lobby-categories-card" className="bg-slate-900/40 border border-slate-900 rounded-2xl p-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2 mb-1.5">
-              <Settings size={16} className="text-indigo-400" />
-              <span>
-                {language === "en" ? "Active Categories" : "Categorías Activas"} ({room.categories.length}/10)
-              </span>
-            </h3>
-            
-            <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
-              {isHost 
-                ? (language === "en" ? "Tap to toggle round categories. Minimum 2, maximum 10." : "Elige las categorías de la ronda (presiona para alternar). Mínimo 2, máximo 10.") 
-                : (language === "en" ? "Only the room host can customize round categories." : "Solo el anfitrión de la sala puede cambiar las categorías activas.")}
-            </p>
+          {/* CATEGORY SELECTORS & GAME RULES SETTINGS CARD */}
+          <div id="lobby-categories-card" className="bg-slate-900/40 border border-slate-950 rounded-2xl p-4 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-800/80">
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                <Settings size={16} className="text-indigo-400" />
+                <span>
+                  {language === "en" ? "Game Rules & Settings" : "Ajustes y Reglas de Ronda"}
+                </span>
+              </h3>
 
-            <div className="flex flex-wrap gap-1.5">
-              {currentBank.map((cat) => {
-                const isActive = room.categories.includes(cat);
-                return (
-                  <button
-                    key={cat}
-                    disabled={!isHost}
-                    onClick={() => toggleCategory(cat)}
-                    className={`text-xs py-1.5 px-3 rounded-lg border transition flex items-center gap-1 ${
-                      isActive
-                        ? "bg-indigo-500/20 border-indigo-400 text-indigo-300 font-bold"
-                        : "bg-slate-900/50 border-slate-800/80 text-slate-400 hover:border-slate-700"
-                    } ${isHost ? "cursor-pointer" : "cursor-default"}`}
-                  >
-                    {isActive && <Check size={12} className="text-indigo-400" />}
-                    <span>{cat}</span>
-                  </button>
-                );
-              })}
+              {/* Validation Mode Selector */}
+              <div className="flex items-center gap-1 bg-slate-950 border border-slate-800 rounded-xl p-1 text-[10px] font-bold self-start">
+                <button
+                  disabled={!isHost}
+                  onClick={() => onUpdateValidationMode?.("democracy")}
+                  className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
+                    room.validationMode !== "ai"
+                      ? "bg-indigo-600 text-slate-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  } ${!isHost ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={language === "en" ? "Democracy Votation Mode" : "Modo de Votación Democrática"}
+                >
+                  🗳️ {language === "en" ? "Voting" : "Democracia"}
+                </button>
+                <button
+                  disabled={!isHost}
+                  onClick={() => onUpdateValidationMode?.("ai")}
+                  className={`px-2.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1 ${
+                    room.validationMode === "ai"
+                      ? "bg-purple-600 text-slate-100"
+                      : "text-slate-400 hover:text-slate-200"
+                  } ${!isHost ? "opacity-50 cursor-not-allowed" : ""}`}
+                  title={language === "en" ? "Gemini AI validation" : "Validación por IA Gemini"}
+                >
+                  🤖 {language === "en" ? "Gemini AI" : "IA Gemini"}
+                </button>
+              </div>
+            </div>
+
+            {/* Dynamic visual box explaining rules */}
+            <div className="bg-slate-950/50 border border-slate-900 rounded-xl p-3">
+              <h4 className="text-[11px] font-bold text-indigo-400 flex items-center gap-1.5 mb-1">
+                {room.validationMode === "ai" ? "🤖 " + t.ai_validation_title : "🗳️ " + t.validation_title}
+              </h4>
+              <p className="text-[10px] text-slate-400 leading-normal">
+                {room.validationMode === "ai" ? t.ai_validation_desc : t.validation_desc}
+              </p>
+            </div>
+
+            <div>
+              <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+                {language === "en" ? "Customize Categories:" : "Configurar Categorías:"} ({room.categories.length}/10)
+              </h4>
+              <p className="text-[10px] text-slate-500 mb-3 leading-relaxed">
+                {isHost 
+                  ? (language === "en" ? "Tap to toggle round categories. Minimum 2, maximum 10." : "Elige las categorías de la ronda (presiona para alternar). Mínimo 2, máximo 10.") 
+                  : (language === "en" ? "Only the room host can customize round categories." : "Solo el anfitrión de la sala puede cambiar las categorías activas.")}
+              </p>
+
+              <div className="flex flex-wrap gap-1.5 animate-in fade-in duration-300">
+                {currentBank.map((cat) => {
+                  const isActive = room.categories.includes(cat);
+                  return (
+                    <button
+                      key={cat}
+                      disabled={!isHost}
+                      onClick={() => toggleCategory(cat)}
+                      className={`text-[11px] py-1.5 px-3 rounded-lg border transition flex items-center gap-1 ${
+                        isActive
+                          ? "bg-indigo-500/20 border-indigo-400 text-indigo-300 font-bold"
+                          : "bg-slate-900/50 border-slate-800/80 text-slate-400 hover:border-slate-700"
+                      } ${isHost ? "cursor-pointer" : "cursor-default"}`}
+                    >
+                      {isActive && <Check size={12} className="text-indigo-400" />}
+                      <span>{cat}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
@@ -219,7 +267,7 @@ export default function Lobby({
           </div>
 
           {/* Chat scrolling feed */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2 text-xs">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 text-xs scrollbar-thin">
             {room.chatMessages.length === 0 ? (
               <div className="text-center text-[11px] text-slate-600 italic py-12">
                 {language === "en" ? "Say hello to coordinate categories!" : "¡Saluda a tus amigos aquí para organizarse!"}
@@ -244,8 +292,8 @@ export default function Lobby({
                     </div>
                     <div className={`p-2.5 rounded-2xl max-w-[85%] text-slate-100 ${
                       flagMe 
-                        ? "bg-indigo-600 rounded-tr-none text-right" 
-                        : "bg-slate-800 rounded-tl-none"
+                        ? "bg-indigo-600 rounded-tr-none text-right shadow-md" 
+                        : "bg-slate-800 rounded-tl-none shadow-sm"
                     }`}>
                       <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
                     </div>
@@ -298,3 +346,19 @@ export default function Lobby({
     </div>
   );
 }
+
+// Minimal inlined TRANSLATIONS subset just to prevent crashes under async mounts
+const TRANSLATIONS = {
+  es: {
+    ai_validation_title: "Validación por IA (Gemini) 🤖",
+    ai_validation_desc: "Nuestra Inteligencia Artificial de Google Gemini dictaminará la validez de todas las respuestas de forma instantánea, explicando su decisión.",
+    validation_title: "Validación Con Consenso",
+    validation_desc: "Vota con un pulgar arriba si la palabra es real y empieza con la letra correcta. Vota pulgar abajo si es falsa o inventada.",
+  },
+  en: {
+    ai_validation_title: "AI Validation (Gemini) 🤖",
+    ai_validation_desc: "Our Google Gemini Artificial Intelligence will referee all submissions in real-time and provide detailed feedback explanations.",
+    validation_title: "Consensus Validation",
+    validation_desc: "Vote thumbs up if the word is real and begins with the correct letter. Vote thumbs down if it is false or fully made up.",
+  }
+};

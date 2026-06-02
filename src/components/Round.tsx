@@ -64,7 +64,7 @@ export default function Round({
     <div className="flex flex-col h-full bg-slate-950 font-sans text-slate-100 overflow-hidden relative">
       
       {/* VIBRANT TIMER HEADER PORTION */}
-      <div className="bg-slate-900 p-4 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0">
+      <div className="sticky top-0 z-40 bg-slate-900 p-4 border-b border-slate-800 flex items-center justify-between gap-3 shrink-0 shadow-md">
         
         {/* BIG CHOSEN LETTER INDICATOR */}
         <div className="flex items-center gap-3">
@@ -117,7 +117,7 @@ export default function Round({
       </div>
 
       {/* DYNAMIC PROGRESS BAR TIMER (EMERALD -> RED) */}
-      <div className={`w-full h-1.5 ${timerBgBar} shrink-0`}>
+      <div className={`sticky top-[96px] z-40 w-full h-1.5 ${timerBgBar} shrink-0`}>
         <div 
           className={`h-full transition-all duration-1000 ease-linear ${timerColorClass}`}
           style={{ width: `${timePercent}%` }}
@@ -126,7 +126,7 @@ export default function Round({
 
       {/* ALERT BOX UNDER PANIC ACTION */}
       {room.panicActive && (
-        <div className="bg-red-950/50 border-b border-red-900/40 py-2.5 px-4 text-center text-xs flex items-center justify-center gap-2 animate-bounce shrink-0">
+        <div className="sticky top-[102px] z-40 bg-red-950/50 border-b border-red-900/40 py-2.5 px-4 text-center text-xs flex items-center justify-center gap-2 animate-bounce shrink-0">
           <AlertTriangle size={14} className="text-red-500 animate-pulse" />
           <span className="text-red-300 font-semibold uppercase tracking-wider">
             {language === "en" 

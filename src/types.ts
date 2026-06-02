@@ -25,7 +25,7 @@ export interface Player {
   lastRoundScore: number;
   ready: boolean;
   inputs: Record<string, string>; // category -> word input
-  votes: Record<string, Record<string, boolean>>; // votingPlayerId -> categoryId -> true (upvote) / false (downvote)
+  votes: Record<string, Record<string, boolean | string>>; // votingPlayerId -> categoryId -> true (upvote) / false (downvote) / description (string)
   connected: boolean;
 }
 
@@ -44,6 +44,8 @@ export interface RoomState {
   isBotRoom?: boolean;
   isPublic?: boolean;
   language?: "es" | "en";
+  validationMode?: "democracy" | "ai";
+  aiEvaluating?: boolean;
 }
 
 // Relational Database Schema types
