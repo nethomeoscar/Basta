@@ -72,7 +72,7 @@ export default function Round({
             <span className="text-[10px] text-indigo-400 font-black tracking-widest leading-none">
               {language === "en" ? "LETTER" : "LETRA"}
             </span>
-            <span className="text-3xl font-serif font-black text-indigo-300 -mt-1">{letter}</span>
+            <span className="text-3xl font-serif font-black text-red-300 -mt-1">{letter}</span>
           </div>
 
           <div className="flex flex-col">
