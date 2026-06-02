@@ -14,7 +14,7 @@ function getAudioContext(): AudioContext {
 }
 
 // Play a customized pure-synth tone
-export function playBeep(frequency = 600, duration = 0.1, type: OscillatorType = "sine", volume = 0.08) {
+export function playBeep(frequency = 600, duration = 0.1, type: OscillatorType = "sine", volume = 0.25) {
   try {
     const ctx = getAudioContext();
     const osc = ctx.createOscillator();
